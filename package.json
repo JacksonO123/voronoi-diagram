@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "@webgpu/types": "^0.1.44",
+    "simulationjsv2": "link:../simulationjs/v2",
+    "vite": "^5.3.4"
+  },
+  "scripts": {
+    "dev": "vite --port 3000"
+  }
+}
