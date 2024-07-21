@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "@webgpu/types": "^0.1.44",
-    "simulationjsv2": "link:../simulationjs/v2",
+    "simulationjsv2": "^0.5.2",
     "vite": "^5.3.4"
   },
   "scripts": {

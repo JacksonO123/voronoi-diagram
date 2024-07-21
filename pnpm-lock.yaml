@@ -12,8 +12,8 @@ importers:
         specifier: ^0.1.44
         version: 0.1.44
       simulationjsv2:
-        specifier: link:../simulationjs/v2
-        version: link:../simulationjs/v2
+        specifier: ^0.5.2
+        version: 0.5.2
       vite:
         specifier: ^5.3.4
         version: 5.3.4
@@ -271,6 +271,9 @@ packages:
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     hasBin: true
 
+  simulationjsv2@0.5.2:
+    resolution: {integrity: sha512-g5dA5EYreQqfBjYbmobE//ft5gA5opP/EnVk4MQ+Uu7HnySwg7Xkyp0zM3pWhePqiTsxpguSD0m343d+iQQKFw==}
+
   source-map-js@1.2.0:
     resolution: {integrity: sha512-itJW8lvSA0TXEphiRoawsCksnlf8SyvmFzIhltqAHluXd88pkCd+cXJVHTDwdCr0IzwptSm035IHQktUu1QUMg==}
     engines: {node: '>=0.10.0'}
@@ -302,6 +305,9 @@ packages:
         optional: true
       terser:
         optional: true
+
+  wgpu-matrix@2.9.1:
+    resolution: {integrity: sha512-eJqSM1nNvzcfDhSFCwcbjAkxkaqwQl6KnxOsL52ydwfwQW9yIODgmKJaKTKnutxbfAGGZE1KVT3NgX71TJ/OpA==}
 
 snapshots:
 
@@ -487,6 +493,11 @@ snapshots:
       '@rollup/rollup-win32-x64-msvc': 4.18.1
       fsevents: 2.3.3
 
+  simulationjsv2@0.5.2:
+    dependencies:
+      '@webgpu/types': 0.1.44
+      wgpu-matrix: 2.9.1
+
   source-map-js@1.2.0: {}
 
   vite@5.3.4:
@@ -496,3 +507,5 @@ snapshots:
       rollup: 4.18.1
     optionalDependencies:
       fsevents: 2.3.3
+
+  wgpu-matrix@2.9.1: {}
