@@ -16,6 +16,7 @@ import {
   color,
   transitionValues,
   easeInQuart,
+  easeOutQuart,
 } from "simulationjsv2";
 
 const canvas = new Simulation("canvas", new Camera(vector3()), true);
@@ -25,8 +26,9 @@ canvas.start();
 const startTime = 1500;
 const sideBuffer = 400;
 const dotRadius = 8;
-const maxRadius = canvas.getWidth() * devicePixelRatio;
+const maxRadius = 4000;
 const speed = 0.4;
+const animationTime = 3;
 let currentRadius = dotRadius;
 
 const newShader = `
@@ -250,23 +252,63 @@ canvas.onResize((width, height) => {
 
 let running = true;
 // let running = false;
-// let expanding = false;
+let animating = false;
 
-setTimeout(() => {
-  transitionValues(
+function init() {
+  currentRadius = dotRadius;
+
+  return new Promise<void>((resolve) => {
+    setTimeout(async () => {
+      await transitionValues(
+        (a) => {
+          currentRadius += maxRadius * a;
+        },
+        () => {
+          currentRadius = maxRadius;
+        },
+        animationTime,
+        easeInQuart,
+      );
+      resolve();
+    }, startTime);
+  });
+}
+
+async function main() {
+  animating = true;
+  await init();
+  animating = false;
+}
+
+main();
+
+async function shrinkDots() {
+  const diff = dotRadius - maxRadius;
+
+  return transitionValues(
     (a) => {
-      currentRadius += maxRadius * a;
+      currentRadius += diff * a;
     },
-    () => {},
-    3,
-    easeInQuart,
+    () => {
+      currentRadius = dotRadius;
+    },
+    animationTime,
+    easeOutQuart,
   );
-  // expanding = true;
-}, startTime);
+}
+
+async function restart() {
+  animating = true;
+  await shrinkDots();
+  await init();
+  animating = false;
+}
 
 addEventListener("keypress", (e) => {
   if (e.key === " ") {
     running = !running;
+  } else if (e.key === "Enter" && !animating) {
+    restart();
   }
 });
 
@@ -282,88 +324,12 @@ canvas.add(line3);
 const line4 = new Line2d(vertex(0, 0, 0, color(255)), vertex(), 5);
 canvas.add(line4);
 
-// function findPoint(pos: Vector2, ignore: number) {
-//   let minDist = Infinity;
-//   let index = -1;
-//   let resPos = vector2();
-
-//   for (let i = 0; i < dots.length; i++) {
-//     if (i === ignore) continue;
-
-//     const tempPos = cloneBuf(dots[i].getPosition());
-//     tempPos[0] /= 2;
-//     tempPos[1] = -(canvas.getHeight() - tempPos[1] / 2);
-//     const dist = distance2d(pos, tempPos);
-//     if (dist < minDist) {
-//       minDist = dist;
-//       index = i;
-//       resPos = tempPos;
-//     }
-//   }
-
-//   return [index, resPos] as const;
-// }
-
-// function doThing(pos: Vector2) {
-//   const [index, closest] = findPoint(pos, -1);
-//   const [_, nextClosest] = findPoint(pos, index);
-//   line.setStart(closest);
-//   line.setEnd(nextClosest);
-
-//   const x = (closest[0] + nextClosest[0]) / 2;
-//   const y = (closest[1] + nextClosest[1]) / 2;
-//   const avg = vector2(x, y);
-//   const pixelVec = vec2.sub(pos, avg) as Vector2;
-//   const showVec = vec2.add(pixelVec, avg) as Vector2;
-
-//   let dirVec = vector2(
-//     nextClosest[0] - closest[0],
-//     nextClosest[1] - closest[1],
-//   );
-//   const inverseVec = vector2(-dirVec[1], dirVec[0]);
-
-//   const dot = vec2.dot(inverseVec, pixelVec);
-//   if (dot < 0) {
-//     vec2.scale(inverseVec, -1, inverseVec);
-//   }
-
-//   const inverseShow = vec2.add(avg, inverseVec) as Vector2;
-
-//   const len1 = vec2.length(inverseVec);
-//   const len2 = vec2.length(pixelVec);
-//   let angle = Math.acos(dot / (len1 * len2));
-//   if (dot < 0) {
-//     angle = Math.PI - angle;
-//   }
-//   const dist = Math.asin(angle) * len2;
-//   const tempDir = cloneBuf(dirVec);
-//   vec2.normalize(tempDir, tempDir);
-//   vec2.scale(tempDir, dist, tempDir);
-//   vec2.add(tempDir, pos, tempDir);
-
-//   line2.setStart(avg);
-//   line2.setEnd(showVec);
-//   line3.setStart(avg);
-//   line3.setEnd(inverseShow);
-//   line4.setStart(pos);
-//   line4.setEnd(tempDir);
-// }
-
-// addEventListener("mousemove", (e) => {
-//   const pos = vector2(e.clientX, -e.clientY);
-//   doThing(pos);
-// });
-
 frameLoop(() => {
   if (running) {
     for (let i = 0; i < dots.length; i++) {
       dots[i].step();
     }
   }
-
-  // if (expanding && currentRadius < maxRadius) {
-  //   currentRadius += radiusSpeed;
-  // }
 })();
 
 function generateDots(nums: number) {
