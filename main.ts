@@ -17,15 +17,15 @@ import {
   transitionValues,
   easeInQuart,
   easeOutQuart,
-} from "simulationjsv2";
+} from 'simulationjsv2';
 
-const canvas = new Simulation("canvas", new Camera(vector3()), true);
+const canvas = new Simulation('canvas', new Camera(vector3()), true);
 canvas.fitElement();
 canvas.start();
 
 const startTime = 1500;
 const sideBuffer = 400;
-const dotRadius = 8;
+const dotRadius = 4 * devicePixelRatio;
 const maxRadius = 4000;
 const speed = 0.4;
 const animationTime = 3;
@@ -122,7 +122,7 @@ class Dot {
     const vec = vec2.rotate(
       vector2(speed),
       vector2(),
-      this.rotation,
+      this.rotation
     ) as Vector2;
     vec2.add(this.position, vec, this.position);
 
@@ -160,14 +160,14 @@ const dots = generateDots(60);
 
 const group = new ShaderGroup(
   newShader,
-  "triangle-strip",
+  'triangle-strip',
   [
     {
-      format: "float32x3",
+      format: 'float32x3',
       size: 12,
     },
     {
-      format: "float32x4",
+      format: 'float32x4',
       size: 16,
     },
   ],
@@ -183,19 +183,19 @@ const group = new ShaderGroup(
       {
         visibility: GPUShaderStage.FRAGMENT,
         buffer: {
-          type: "read-only-storage",
+          type: 'read-only-storage',
         },
       },
       {
         visibility: GPUShaderStage.FRAGMENT,
         buffer: {
-          type: "read-only-storage",
+          type: 'read-only-storage',
         },
       },
       {
         visibility: GPUShaderStage.FRAGMENT,
         buffer: {
-          type: "read-only-storage",
+          type: 'read-only-storage',
         },
       },
     ],
@@ -233,14 +233,14 @@ const group = new ShaderGroup(
         },
       ];
     },
-  },
+  }
 );
 
 const square = new Square(
   vector2(),
   canvas.getWidth(),
   canvas.getHeight(),
-  color(),
+  color()
 );
 group.add(square);
 canvas.add(group);
@@ -267,7 +267,7 @@ function init() {
           currentRadius = maxRadius;
         },
         animationTime,
-        easeInQuart,
+        easeInQuart
       );
       resolve();
     }, startTime);
@@ -293,7 +293,7 @@ async function shrinkDots() {
       currentRadius = dotRadius;
     },
     animationTime,
-    easeOutQuart,
+    easeOutQuart
   );
 }
 
@@ -304,10 +304,10 @@ async function restart() {
   animating = false;
 }
 
-addEventListener("keypress", (e) => {
-  if (e.key === " ") {
+addEventListener('keypress', (e) => {
+  if (e.key === ' ') {
     running = !running;
-  } else if (e.key === "Enter" && !animating) {
+  } else if (e.key === 'Enter' && !animating) {
     restart();
   }
 });
@@ -342,9 +342,9 @@ function generateDots(nums: number) {
         randomInt(canvas.getWidth() * devicePixelRatio + sideBuffer * 2) -
           sideBuffer,
         randomInt(canvas.getHeight() * devicePixelRatio + sideBuffer * 2) -
-          sideBuffer,
+          sideBuffer
       ),
-      color,
+      color
     );
     dots.push(dot);
   }
