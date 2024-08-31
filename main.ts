@@ -47,14 +47,14 @@ struct VertexOutput {
 }
 
 @vertex
-fn vertex_main_2d(
+fn vertex_main(
   @builtin(instance_index) instanceIdx: u32,
   @location(0) position: vec3f,
   @location(1) color: vec4f,
 ) -> VertexOutput {
   var output: VertexOutput;
 
-  output.Position = uniforms.orthoProjectionMatrix * vec4(position, 1);
+  output.Position = uniforms.worldProjectionMatrix * uniforms.modelProjectionMatrix * vec4(position, 1.0);
   output.fragPosition = position.xy;
   output.fragColor = color;
   return output;
@@ -144,14 +144,17 @@ class Dot {
       this.position[0] = -(dotRadius + sideBuffer);
     }
 
-    if (this.position[1] < -(dotRadius + sideBuffer)) {
-      this.position[1] =
-        canvas.getHeight() * devicePixelRatio + dotRadius + sideBuffer;
+    if (this.position[1] > dotRadius + sideBuffer) {
+      this.position[1] = -(
+        canvas.getHeight() * devicePixelRatio +
+        dotRadius +
+        sideBuffer
+      );
     } else if (
-      this.position[1] >
-      canvas.getHeight() * devicePixelRatio + dotRadius + sideBuffer
+      this.position[1] <
+      -(canvas.getHeight() * devicePixelRatio + dotRadius + sideBuffer)
     ) {
-      this.position[1] = -(dotRadius + sideBuffer);
+      this.position[1] = dotRadius + sideBuffer;
     }
   }
 }
@@ -176,7 +179,6 @@ const group = new ShaderGroup(
     createBuffer: (x: number, y: number, z: number, color: Color) => {
       return [x, y, z, ...color.toBuffer()];
     },
-    shouldEvaluate: () => false,
   },
   {
     bindings: [
@@ -337,15 +339,14 @@ function generateDots(nums: number) {
 
   for (let i = 0; i < nums; i++) {
     const color = randomColor();
-    const dot = new Dot(
-      vector2(
-        randomInt(canvas.getWidth() * devicePixelRatio + sideBuffer * 2) -
-          sideBuffer,
-        randomInt(canvas.getHeight() * devicePixelRatio + sideBuffer * 2) -
-          sideBuffer,
-      ),
-      color,
+    const vec = vector2(
+      randomInt(canvas.getWidth() * devicePixelRatio + sideBuffer * 2) -
+        sideBuffer,
+      -randomInt(canvas.getHeight() * devicePixelRatio + sideBuffer * 2) +
+        sideBuffer,
     );
+    console.log(canvas.getHeight() * devicePixelRatio);
+    const dot = new Dot(vec, color);
     dots.push(dot);
   }
 
