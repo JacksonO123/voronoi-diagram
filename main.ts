@@ -1,7 +1,6 @@
 import {
   Camera,
   Color,
-  ShaderGroup,
   Simulation,
   Square,
   Vector2,
@@ -17,9 +16,16 @@ import {
   transitionValues,
   easeInQuart,
   easeOutQuart,
-} from "simulationjsv2";
+  Shader,
+  writeUniformWorldMatrix,
+  defaultShader,
+  createBindGroup
+} from 'simulationjsv2';
 
-const canvas = new Simulation("canvas", new Camera(vector3()), true);
+// const showFps = true;
+const showFps = false;
+
+const canvas = new Simulation('canvas', new Camera(vector3()), showFps);
 canvas.fitElement();
 canvas.start();
 
@@ -32,11 +38,18 @@ const animationTime = 3;
 let currentRadius = dotRadius;
 
 const newShader = `
-@group(1) @binding(0) var<storage> dotPositions: array<vec2f>;
+struct Uniforms {
+  worldProjectionMatrix: mat4x4<f32>,
+  modelProjectionMatrix: mat4x4<f32>,
+}
+ 
+@group(0) @binding(0) var<uniform> uniforms: Uniforms;
 
-@group(1) @binding(1) var<storage> dotColors: array<vec4f>;
+@group(0) @binding(1) var<storage> dotPositions: array<vec2f>;
 
-@group(1) @binding(2) var<storage> maxRadius: f32;
+@group(0) @binding(2) var<storage> dotColors: array<vec4f>;
+
+@group(0) @binding(3) var<storage> maxRadius: f32;
 
 const PI = radians(180);
 
@@ -48,7 +61,6 @@ struct VertexOutput {
 
 @vertex
 fn vertex_main(
-  @builtin(instance_index) instanceIdx: u32,
   @location(0) position: vec3f,
   @location(1) color: vec4f,
 ) -> VertexOutput {
@@ -119,11 +131,7 @@ class Dot {
   }
 
   step() {
-    const vec = vec2.rotate(
-      vector2(speed),
-      vector2(),
-      this.rotation,
-    ) as Vector2;
+    const vec = vec2.rotate(vector2(speed), vector2(), this.rotation) as Vector2;
     vec2.add(this.position, vec, this.position);
 
     const diffScale = 0.0015;
@@ -134,118 +142,130 @@ class Dot {
       this.toRotation = randomRotation();
     }
 
-    if (this.position[0] < -(dotRadius + sideBuffer)) {
-      this.position[0] =
-        canvas.getWidth() * devicePixelRatio + dotRadius + sideBuffer;
-    } else if (
-      this.position[0] >
-      canvas.getWidth() * devicePixelRatio + dotRadius + sideBuffer
-    ) {
-      this.position[0] = -(dotRadius + sideBuffer);
+    if (this.position[0] < -(dotRadius + sideBuffer + (canvas.getWidth() * devicePixelRatio) / 2)) {
+      this.position[0] = (canvas.getWidth() * devicePixelRatio) / 2 + dotRadius + sideBuffer;
+    } else if (this.position[0] > (canvas.getWidth() * devicePixelRatio) / 2 + dotRadius + sideBuffer) {
+      this.position[0] = -(dotRadius + sideBuffer + (canvas.getWidth() * devicePixelRatio) / 2);
     }
 
-    if (this.position[1] > dotRadius + sideBuffer) {
-      this.position[1] = -(
-        canvas.getHeight() * devicePixelRatio +
-        dotRadius +
-        sideBuffer
-      );
-    } else if (
-      this.position[1] <
-      -(canvas.getHeight() * devicePixelRatio + dotRadius + sideBuffer)
-    ) {
-      this.position[1] = dotRadius + sideBuffer;
+    if (this.position[1] > dotRadius + sideBuffer + (canvas.getHeight() * devicePixelRatio) / 2) {
+      this.position[1] = -((canvas.getHeight() * devicePixelRatio) / 2 + dotRadius + sideBuffer);
+    } else if (this.position[1] < -((canvas.getHeight() * devicePixelRatio) / 2 + dotRadius + sideBuffer)) {
+      this.position[1] = dotRadius + sideBuffer + (canvas.getHeight() * devicePixelRatio) / 2;
     }
   }
 }
 
 const dots = generateDots(60);
 
-const group = new ShaderGroup(
+const voronoiShader = new Shader(
   newShader,
-  "triangle-strip",
   [
     {
-      format: "float32x3",
-      size: 12,
+      entries: [
+        {
+          binding: 0,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+          buffer: {
+            type: 'uniform'
+          }
+        },
+        {
+          binding: 1,
+          visibility: GPUShaderStage.FRAGMENT,
+          buffer: {
+            type: 'read-only-storage'
+          }
+        },
+        {
+          binding: 2,
+          visibility: GPUShaderStage.FRAGMENT,
+          buffer: {
+            type: 'read-only-storage'
+          }
+        },
+        {
+          binding: 3,
+          visibility: GPUShaderStage.FRAGMENT,
+          buffer: {
+            type: 'read-only-storage'
+          }
+        }
+      ]
+    }
+  ],
+  [
+    {
+      format: 'float32x3',
+      size: 12
     },
     {
-      format: "float32x4",
-      size: 16,
-    },
+      format: 'float32x4',
+      size: 16
+    }
   ],
-  {
-    bufferSize: 7,
-    createBuffer: (x: number, y: number, z: number, color: Color) => {
-      return [x, y, z, ...color.toBuffer()];
+  [
+    {
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      owned: false
     },
-  },
-  {
-    bindings: [
-      {
-        visibility: GPUShaderStage.FRAGMENT,
-        buffer: {
-          type: "read-only-storage",
-        },
-      },
-      {
-        visibility: GPUShaderStage.FRAGMENT,
-        buffer: {
-          type: "read-only-storage",
-        },
-      },
-      {
-        visibility: GPUShaderStage.FRAGMENT,
-        buffer: {
-          type: "read-only-storage",
-        },
-      },
-    ],
-    values: () => {
-      const posBuf = Array(dots.length * 2);
-      const colorBuf = Array(dots.length * 4);
-
-      for (let i = 0; i < dots.length; i++) {
-        const pos = dots[i].getPosition();
-        posBuf[i * 2] = pos[0];
-        posBuf[i * 2 + 1] = pos[1];
-
-        const tempBuf = dots[i].getColor().toBuffer();
-        colorBuf[i * 4] = tempBuf[0];
-        colorBuf[i * 4 + 1] = tempBuf[1];
-        colorBuf[i * 4 + 2] = tempBuf[2];
-        colorBuf[i * 4 + 3] = 1;
-      }
-
-      return [
-        {
-          value: posBuf,
-          array: Float32Array,
-          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-        },
-        {
-          value: colorBuf,
-          array: Float32Array,
-          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-        },
-        {
-          value: [currentRadius],
-          array: Float32Array,
-          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-        },
-      ];
+    {
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      defaultSize: 8
     },
+    {
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      defaultSize: 16
+    },
+    {
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      defaultSize: 4
+    }
+  ],
+  (el, buffers) => {
+    const posBuf = new Float32Array(dots.length * 2);
+    const colorBuf = new Float32Array(dots.length * 4);
+
+    for (let i = 0; i < dots.length; i++) {
+      const pos = dots[i].getPosition();
+      posBuf[i * 2] = pos[0];
+      posBuf[i * 2 + 1] = pos[1];
+
+      const tempBuf = dots[i].getColor().toBuffer();
+      colorBuf[i * 4] = tempBuf[0];
+      colorBuf[i * 4 + 1] = tempBuf[1];
+      colorBuf[i * 4 + 2] = tempBuf[2];
+      colorBuf[i * 4 + 3] = 1;
+    }
+
+    writeUniformWorldMatrix(el);
+
+    buffers[0].write(posBuf);
+    buffers[1].write(colorBuf);
+    buffers[2].write(new Float32Array([currentRadius]));
   },
+  (el, buffers) => {
+    const shader = el.getShader();
+    const gpuBuffers = [
+      el.getUniformBuffer(),
+      buffers[0].getBuffer(),
+      buffers[1].getBuffer(),
+      buffers[2].getBuffer()
+    ];
+
+    return [createBindGroup(shader, 0, gpuBuffers)];
+  },
+  defaultShader.getVertexBufferWriter()
 );
 
 const square = new Square(
-  vector2(),
+  vector2(canvas.getWidth() / 2, -canvas.getHeight() / 2),
   canvas.getWidth(),
   canvas.getHeight(),
-  color(),
+  color()
 );
-group.add(square);
-canvas.add(group);
+square.setShader(voronoiShader);
+canvas.add(square);
 
 canvas.onResize((width, height) => {
   square.setWidth(width);
@@ -269,7 +289,7 @@ function init() {
           currentRadius = maxRadius;
         },
         animationTime,
-        easeInQuart,
+        easeInQuart
       );
       resolve();
     }, startTime);
@@ -295,7 +315,7 @@ async function shrinkDots() {
       currentRadius = dotRadius;
     },
     animationTime,
-    easeOutQuart,
+    easeOutQuart
   );
 }
 
@@ -306,10 +326,10 @@ async function restart() {
   animating = false;
 }
 
-addEventListener("keypress", (e) => {
-  if (e.key === " ") {
+addEventListener('keypress', (e) => {
+  if (e.key === ' ') {
     running = !running;
-  } else if (e.key === "Enter" && !animating) {
+  } else if (e.key === 'Enter' && !animating) {
     restart();
   }
 });
@@ -339,13 +359,12 @@ function generateDots(nums: number) {
 
   for (let i = 0; i < nums; i++) {
     const color = randomColor();
+    const width = canvas.getWidth() * devicePixelRatio;
+    const height = canvas.getHeight() * devicePixelRatio;
     const vec = vector2(
-      randomInt(canvas.getWidth() * devicePixelRatio + sideBuffer * 2) -
-        sideBuffer,
-      -randomInt(canvas.getHeight() * devicePixelRatio + sideBuffer * 2) +
-        sideBuffer,
+      randomInt(width + sideBuffer * 2) - sideBuffer - width / 2,
+      -randomInt(height + sideBuffer * 2) + sideBuffer + height / 2
     );
-    console.log(canvas.getHeight() * devicePixelRatio);
     const dot = new Dot(vec, color);
     dots.push(dot);
   }
