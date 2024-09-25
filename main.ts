@@ -31,7 +31,7 @@ canvas.start();
 
 const startTime = 1500;
 const sideBuffer = 400;
-const dotRadius = 8;
+const dotRadius = 4 * devicePixelRatio;
 const maxRadius = 4000;
 const speed = 0.4;
 const animationTime = 3;
